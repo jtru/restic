@@ -85,6 +85,7 @@ The full documentation can be found at https://restic.readthedocs.io/ .
 		newFindCommand(globalOptions),
 		newForgetCommand(globalOptions),
 		newGenerateCommand(globalOptions),
+		newHashCommand(globalOptions),
 		newInitCommand(globalOptions),
 		newKeyCommand(globalOptions),
 		newListCommand(globalOptions),
