@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/restic/restic/internal/errors"
 	"github.com/restic/restic/internal/feature"
 	"golang.org/x/net/http2"
+	"software.sslmate.com/src/go-pkcs12"
 )
 
 // TransportOptions collects various options which can be set for an HTTP based
@@ -26,6 +28,9 @@ type TransportOptions struct {
 	// contains the name of a file containing the TLS client certificate and private key in PEM format
 	TLSClientCertKeyFilename string
 
+	// if the name of the client cert/key file indicates PKCS#12 data (*.pfx or *.p12), this decrypts the private key
+	TLSClientCertKeyPassword string
+
 	// Skip TLS certificate verification
 	InsecureTLS bool
 
@@ -34,6 +39,32 @@ type TransportOptions struct {
 
 	// Timeout after which to retry stuck requests
 	StuckRequestTimeout time.Duration
+}
+
+func readClientCertBundleFile(filename string, keypassword string) (certs []byte, key []byte, err error) {
+	fnExt := strings.ToLower(filepath.Ext(filename))
+	if strings.HasSuffix(fnExt, ".pfx") || strings.HasSuffix(fnExt, ".p12") {
+		pfxdata, err := os.ReadFile(filename)
+		if err != nil {
+			return nil, nil, err
+		}
+		pfxKey, pfxCert, _, err := pkcs12.DecodeChain(pfxdata, keypassword)
+		if err != nil {
+			return nil, nil, err
+		}
+		clientCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: pfxCerts.Raw})
+
+		keyDERForm, err := x509.MarshalPKCS8PrivateKey(pfxKey)
+		if err != nil {
+			return nil, nil, err
+		}
+		privateKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDERForm})
+
+		return clientCert, privateKey, err
+	} else { // assuming PEM encoding
+		return readPEMCertKey(filename)
+	}
+
 }
 
 // readPEMCertKey reads a file and returns the PEM encoded certificate and key
@@ -104,7 +135,7 @@ func Transport(opts TransportOptions) (http.RoundTripper, error) {
 	}
 
 	if opts.TLSClientCertKeyFilename != "" {
-		certs, key, err := readPEMCertKey(opts.TLSClientCertKeyFilename)
+		certs, key, err := readClientCertBundleFile(opts.TLSClientCertKeyFilename, opts.TLSClientCertKeyPassword)
 		if err != nil {
 			return nil, err
 		}
