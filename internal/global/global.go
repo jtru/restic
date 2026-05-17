@@ -127,6 +127,7 @@ func (opts *Options) AddFlags(f *pflag.FlagSet) {
 		opts.RootCertFilenames = strings.Split(os.Getenv("RESTIC_CACERT"), ",")
 	}
 	opts.TLSClientCertKeyFilename = os.Getenv("RESTIC_TLS_CLIENT_CERT")
+	opts.TLSClientCertKeyPassword = os.Getenv("RESTIC_TLS_CLIENT_CERT_PASSWORD")
 	opts.packSizeFlag = f.Lookup(packSizeFlag)
 	opts.compressionFlag = f.Lookup(compressionFlag)
 
